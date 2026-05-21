@@ -86,6 +86,7 @@ class RaffleController(QObject):
             if result.error:
                 self.error_occurred.emit(result.error)
             else:
+                self.prizes_updated.emit()
                 self.draw_completed.emit(result)
         except Exception as exc:
             self.error_occurred.emit(str(exc))

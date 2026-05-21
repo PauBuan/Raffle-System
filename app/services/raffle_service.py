@@ -62,6 +62,12 @@ class RaffleService:
         """Add a new prize and return the full Prize object."""
         new_id = self._prizes.add_prize(category, prize_name, quantity)
         prizes = self._prizes.get_prizes_by_category(category)
+        if new_id <= 0:
+            # Some SQL Server environments may return no identity value
+            # even when INSERT succeeds; fall back to latest matching prize.
+            for p in reversed(prizes):
+                if p.prize_name == prize_name and p.quantity == quantity and p.is_active:
+                    return p
         for p in prizes:
             if p.prize_id == new_id:
                 return p
@@ -88,6 +94,12 @@ class RaffleService:
         - Redraw: a fresh random selection (existing records kept for audit).
         """
         prize = self._get_prize_or_raise(prize_id)
+
+        if prize.quantity <= 0:
+            return DrawResult(
+                winners=[], prize=prize, is_redraw=is_redraw,
+                error="This prize has no remaining winner slots.",
+            )
 
         # Determine exclusion list
         excluded: list[str] = []
@@ -125,6 +137,10 @@ class RaffleService:
                 )
             )
             logger.info("Drew winner: %s (%s) for prize '%s'", emp.emp_name, emp.emp_no, prize.prize_name)
+
+        # Standard draws consume remaining winner slots for the prize.
+        if not is_redraw and count > 0:
+            self._prizes.decrement_quantity(prize_id, count)
 
         return DrawResult(winners=winner_objects, prize=prize, is_redraw=is_redraw)
 

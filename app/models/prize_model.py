@@ -75,13 +75,33 @@ class PrizeRepository:
         if cat is None:
             raise ValueError(f"Unknown category: {category_name}")
         return self._db.execute(
-            "INSERT INTO Prizes (CategoryID, PrizeName, Quantity) VALUES (?, ?, ?)",
-            (cat.category_id, prize_name, quantity),
+            "INSERT INTO Prizes (CategoryID, PrizeName, Quantity, IsActive) VALUES (?, ?, ?, ?)",
+            (cat.category_id, prize_name, quantity, 1),
         )
 
     def delete_prize(self, prize_id: int) -> None:
         """Soft-delete a prize by marking it inactive."""
         self._db.execute(
             "UPDATE Prizes SET IsActive = 0 WHERE PrizeID = ?",
+            (prize_id,),
+        )
+
+    def decrement_quantity(self, prize_id: int, amount: int = 1) -> None:
+        """Decrease remaining winner slots; deactivate prize when exhausted."""
+        if amount <= 0:
+            return
+        self._db.execute(
+            """
+            UPDATE Prizes
+            SET Quantity = CASE
+                    WHEN Quantity - ? < 0 THEN 0
+                    ELSE Quantity - ?
+                END
+            WHERE PrizeID = ?
+            """,
+            (amount, amount, prize_id),
+        )
+        self._db.execute(
+            "UPDATE Prizes SET IsActive = 0 WHERE PrizeID = ? AND Quantity <= 0",
             (prize_id,),
         )
