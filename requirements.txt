@@ -1,5 +1,4 @@
 # Raffle System — Python dependencies
 PySide6>=6.6.0
 pyodbc>=4.0.39          # SQL Server 2019 connectivity; optional (SQLite fallback available)
-bd2b2-b1abf
-f3c81-1f5b3
+
