@@ -2,16 +2,21 @@
 app/views/screens/minor_loading_screen.py
 ------------------------------------------
 Loading / reveal screen for Minor prize draws.
-Displays winners as an animated, staggered list with glow effects.
+Displays winners as an animated, staggered list with slide-in + fade effects.
+
+v2.0 changes:
+    - Slide-in from left per row + subtle fade
+    - Uses MINOR_ROW_INTERVAL_MS from settings
 """
 
 from PySide6.QtWidgets  import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame, QScrollArea
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame, QScrollArea,
+    QGraphicsOpacityEffect,
 )
-from PySide6.QtCore     import Qt, QTimer, QPropertyAnimation, QEasingCurve
+from PySide6.QtCore     import Qt, QTimer, QPropertyAnimation, QEasingCurve, QPoint
 from PySide6.QtGui      import QFont, QColor
 from app.models         import Winner
-from config.settings    import COLORS
+from config.settings    import COLORS, MINOR_ROW_INTERVAL_MS
 
 
 class _WinnerRow(QFrame):
@@ -27,7 +32,6 @@ class _WinnerRow(QFrame):
                     stop:0 {COLORS['bg_card2']}, stop:1 {COLORS['bg_card']});
                 border-left: 4px solid {COLORS['accent_green']};
                 border-radius: 8px;
-                opacity: 0;
             }}
         """)
 
@@ -73,11 +77,38 @@ class _WinnerRow(QFrame):
         self.setGraphicsEffect(None)
         self.hide()
 
+    def animate_in(self) -> None:
+        """Slide in from left + fade in."""
+        self.show()
+
+        # Slide animation
+        start_pos = self.pos() + QPoint(-80, 0)
+        end_pos = self.pos()
+        self.move(start_pos)
+
+        slide = QPropertyAnimation(self, b"pos")
+        slide.setDuration(300)
+        slide.setStartValue(start_pos)
+        slide.setEndValue(end_pos)
+        slide.setEasingCurve(QEasingCurve.OutCubic)
+        slide.start()
+        self._slide_anim = slide
+
+        # Fade animation
+        opacity = QGraphicsOpacityEffect(self)
+        self.setGraphicsEffect(opacity)
+        fade = QPropertyAnimation(opacity, b"opacity")
+        fade.setDuration(300)
+        fade.setStartValue(0.0)
+        fade.setEndValue(1.0)
+        fade.start()
+        self._fade_anim = fade
+
 
 class MinorLoadingScreen(QWidget):
     """
     Full-screen overlay for Minor prize reveals.
-    Winners appear one-by-one with a staggered delay.
+    Winners appear one-by-one with a staggered delay + slide-in animation.
     """
 
     def __init__(self, prize_name: str, winners: list[Winner], parent=None) -> None:
@@ -154,7 +185,7 @@ class MinorLoadingScreen(QWidget):
     # ── Animation ──────────────────────────────────────────────────
 
     def start_reveal(self) -> None:
-        """Begin staggered reveal of winner rows."""
+        """Begin staggered reveal of winner rows with slide-in animation."""
         self._reveal_index = 0
         self._reveal_next()
 
@@ -162,6 +193,6 @@ class MinorLoadingScreen(QWidget):
         if self._reveal_index >= len(self._rows):
             return
         row = self._rows[self._reveal_index]
-        row.show()
+        row.animate_in()
         self._reveal_index += 1
-        QTimer.singleShot(280, self._reveal_next)
+        QTimer.singleShot(MINOR_ROW_INTERVAL_MS, self._reveal_next)

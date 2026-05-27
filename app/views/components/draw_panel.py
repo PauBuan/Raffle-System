@@ -4,20 +4,27 @@ app/views/components/draw_panel.py
 Reusable draw panel component used inside each prize-category tab.
 Displays the prize list, draw / redraw buttons, and triggers
 the appropriate loading screen.
+
+v2.0 changes:
+    - Winner count spinbox (user-defined draw count)
+    - "All Employees (Whole Tip)" in department combo
+    - Button pulse animation on draw
+    - Grand confirm/redraw flow integration
 """
 
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QComboBox,
     QPushButton, QTableWidget, QTableWidgetItem, QHeaderView,
-    QFrame, QStackedWidget, QSizePolicy
+    QFrame, QStackedWidget, QSizePolicy, QSpinBox,
 )
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import Qt, QTimer, QPropertyAnimation, QEasingCurve
 from PySide6.QtGui  import QFont, QColor
 
 from app.controllers          import RaffleController
 from app.models               import Prize
 from app.views.screens        import MinorLoadingScreen, MajorLoadingScreen, GrandLoadingScreen
 from app.views.dialogs        import AddPrizeDialog
+from app.views.grand_confirm_panel import GrandConfirmPanel
 from app.utils                import show_error, badge_color, confirm
 from config.settings          import COLORS, CATEGORY_MINOR, CATEGORY_MAJOR, CATEGORY_GRAND
 
@@ -25,9 +32,9 @@ from config.settings          import COLORS, CATEGORY_MINOR, CATEGORY_MAJOR, CAT
 class DrawPanel(QWidget):
     """
     Self-contained draw panel for one prize category tab.
-    Contains: prize selector, draw button, optional redraw button,
-    and a stacked area that switches between the panel and the
-    appropriate loading screen.
+    Contains: prize selector, winner count spinbox, draw button,
+    optional redraw button, and a stacked area that switches between
+    the panel and the appropriate loading screen.
     """
 
     def __init__(
@@ -100,18 +107,31 @@ class DrawPanel(QWidget):
         ctrl_row = QHBoxLayout()
         ctrl_row.setSpacing(10)
 
-        dept_lbl = QLabel("Department:")
-        dept_lbl.setStyleSheet(f"color: {COLORS['text_muted']};")
-        ctrl_row.addWidget(dept_lbl)
+        self._dept_lbl = QLabel("Department:")
+        self._dept_lbl.setStyleSheet(f"color: {COLORS['text_muted']};")
+        ctrl_row.addWidget(self._dept_lbl)
 
         self._dept_combo = QComboBox()
         self._dept_combo.setMinimumWidth(180)
-        for dept in self._ctrl.load_departments():
-            self._dept_combo.addItem(dept)
-        self._dept_combo.currentTextChanged.connect(self._ctrl.set_department)
+        self._populate_dept_combo()
+        self._dept_combo.currentTextChanged.connect(self._on_department_changed)
         if self._dept_combo.count():
-            self._ctrl.set_department(self._dept_combo.currentText())
+            self._on_department_changed(self._dept_combo.currentText())
         ctrl_row.addWidget(self._dept_combo)
+
+        ctrl_row.addStretch()
+
+        # Winner count spinbox
+        wc_lbl = QLabel("Winners to draw:")
+        wc_lbl.setStyleSheet(f"color: {COLORS['text_muted']};")
+        ctrl_row.addWidget(wc_lbl)
+
+        self._winner_count_spin = QSpinBox()
+        self._winner_count_spin.setMinimum(1)
+        self._winner_count_spin.setMaximum(999)
+        self._winner_count_spin.setValue(1)
+        self._winner_count_spin.setFixedWidth(80)
+        ctrl_row.addWidget(self._winner_count_spin)
 
         ctrl_row.addStretch()
 
@@ -131,8 +151,10 @@ class DrawPanel(QWidget):
 
     def _connect_signals(self) -> None:
         self._ctrl.draw_completed.connect(self._on_draw_completed)
+        self._ctrl.grand_pending.connect(self._on_grand_pending)
         self._ctrl.prizes_updated.connect(self.refresh_prizes)
         self._ctrl.error_occurred.connect(lambda msg: show_error(self, msg))
+        self._ctrl.mode_changed.connect(self._on_mode_changed)
 
     # ── Data helpers ───────────────────────────────────────────────
 
@@ -153,8 +175,8 @@ class DrawPanel(QWidget):
             cat_item.setFont(QFont("Segoe UI", 11, QFont.Bold))
             self._table.setItem(row_idx, 1, cat_item)
 
-            # Winners (Quantity)
-            qty_item = QTableWidgetItem(str(prize.quantity))
+            # Winners (WinnerCount)
+            qty_item = QTableWidgetItem(str(prize.winner_count))
             qty_item.setTextAlignment(Qt.AlignCenter)
             self._table.setItem(row_idx, 2, qty_item)
 
@@ -171,12 +193,55 @@ class DrawPanel(QWidget):
         row = self._table.currentRow()
         return self._prizes[row] if row < len(self._prizes) else None
 
+    def _populate_dept_combo(self) -> None:
+        """Fill the department combo based on current mode."""
+        self._dept_combo.blockSignals(True)
+        self._dept_combo.clear()
+
+        if self._ctrl.get_mode() == "event":
+            # Event mode: building assignment (LTI / CIP)
+            self._dept_lbl.setText("Assignment:")
+            self._dept_combo.addItem("🏢 LTI")
+            self._dept_combo.addItem("🏢 CIP")
+        else:
+            # Department mode: standard department list
+            self._dept_lbl.setText("Department:")
+            self._dept_combo.addItem("🏢 All Employees (Whole Tip)")
+            for dept in self._ctrl.load_departments():
+                self._dept_combo.addItem(dept)
+
+        self._dept_combo.blockSignals(False)
+        if self._dept_combo.count():
+            self._on_department_changed(self._dept_combo.currentText())
+
+    def _on_mode_changed(self, mode: str) -> None:
+        """React to mode switch — repopulate department/assignment combo."""
+        self._populate_dept_combo()
+
+    def _on_department_changed(self, text: str) -> None:
+        """Map display text to controller value."""
+        if "All Employees" in text:
+            self._ctrl.set_department("ALL")
+        elif "LTI" in text:
+            self._ctrl.set_department("LTI")
+        elif "CIP" in text:
+            self._ctrl.set_department("CIP")
+        else:
+            self._ctrl.set_department(text)
+
     # ── Slot handlers ──────────────────────────────────────────────
 
     def _on_add_prize(self) -> None:
         dlg = AddPrizeDialog(default_category=self._category, parent=self)
         if dlg.exec():
-            self._ctrl.add_prize(dlg.category, dlg.prize_name, dlg.quantity)
+            result = self._ctrl.add_prize(dlg.category, dlg.prize_name, dlg.winner_count)
+            if result and result.was_deduplicated:
+                from app.utils import show_toast
+                show_toast(
+                    self,
+                    f"Added to existing prize '{result.prize.prize_name}' "
+                    f"— total winners: {result.new_total}",
+                )
 
     def _on_delete_prize(self) -> None:
         prize = self._selected_prize()
@@ -191,20 +256,99 @@ class DrawPanel(QWidget):
         if not prize:
             show_error(self, "Select a prize to draw.")
             return
-        self._ctrl.start_draw(prize.prize_id)
+
+        # Button pulse animation
+        self._pulse_button(self._draw_btn)
+
+        winner_count = self._winner_count_spin.value()
+
+        if self._category == CATEGORY_GRAND:
+            # Grand draws use the confirm/redraw flow
+            self._ctrl.start_grand_draw(prize.prize_id, lti_count=winner_count)
+        else:
+            self._ctrl.start_draw(prize.prize_id, winner_count)
 
     def _on_redraw(self) -> None:
         prize = self._selected_prize()
         if not prize:
             show_error(self, "Select a prize to redraw.")
             return
-        self._ctrl.start_redraw(prize.prize_id)
+        winner_count = self._winner_count_spin.value()
+
+        if self._category == CATEGORY_GRAND:
+            self._ctrl.redraw_grand()
+        else:
+            self._ctrl.start_redraw(prize.prize_id, winner_count)
 
     def _on_draw_completed(self, result) -> None:
         """Only handle results that belong to this panel's category."""
         if result.prize.category_name != self._category:
             return
         self._show_loading_screen(result)
+
+    def _on_grand_pending(self, result) -> None:
+        """Handle Grand draw pending result — show slot machine then confirm panel."""
+        if self._category != CATEGORY_GRAND:
+            return
+        if not result.pending_employees:
+            show_error(self, "No eligible employees for Grand draw.")
+            return
+
+        # Show slot machine for first pending employee
+        from app.models import Winner
+        emp = result.pending_employees[0]
+        fake_winner = Winner(
+            winner_id=0, prize_id=result.prize.prize_id,
+            prize_name=result.prize.prize_name,
+            category_name=CATEGORY_GRAND,
+            emp_no=emp.emp_no, emp_name=emp.emp_name,
+            department=emp.department, drawn_at="", is_redraw=False,
+        )
+        screen = GrandLoadingScreen(result.prize.prize_name, fake_winner, self)
+
+        # Push onto stack
+        while self._stack.count() > 1:
+            old = self._stack.widget(1)
+            self._stack.removeWidget(old)
+            old.deleteLater()
+
+        self._stack.addWidget(screen)
+        self._stack.setCurrentIndex(1)
+        screen.start_reveal()
+
+        # After reveal completes, show confirm/redraw panel
+        total_chars = len(emp.emp_no)
+        from config.settings import SLOT_CHAR_INTERVAL_MS
+        reveal_duration = total_chars * SLOT_CHAR_INTERVAL_MS + 500
+
+        QTimer.singleShot(reveal_duration, lambda: self._show_grand_confirm(result, screen))
+
+    def _show_grand_confirm(self, result, parent_screen) -> None:
+        """Show the confirm/redraw overlay after Grand reveal."""
+        if not result.pending_employees:
+            return
+        emp = result.pending_employees[0]
+
+        panel = GrandConfirmPanel(
+            emp_name=emp.emp_name,
+            emp_no=emp.emp_no,
+            department=emp.department,
+            parent=parent_screen,
+        )
+        panel.confirmed.connect(lambda: self._on_grand_confirmed(emp))
+        panel.redrawn.connect(self._on_grand_redrawn)
+        panel.show()
+        panel.animate_in()
+
+    def _on_grand_confirmed(self, emp) -> None:
+        """User confirmed Grand winner."""
+        self._ctrl.confirm_grand_winner(emp)
+        self._stack.setCurrentIndex(0)
+
+    def _on_grand_redrawn(self) -> None:
+        """User chose to redraw Grand."""
+        self._stack.setCurrentIndex(0)
+        self._ctrl.redraw_grand()
 
     def _show_loading_screen(self, result) -> None:
         """Build and display the appropriate loading screen, then auto-close."""
@@ -214,6 +358,7 @@ class DrawPanel(QWidget):
         elif cat == CATEGORY_MAJOR:
             screen = MajorLoadingScreen(result.prize.prize_name, result.winners, self)
         else:
+            # Grand standard draw (non-grouped) — shouldn't reach here in v2
             if not result.winners:
                 show_error(self, "No eligible employees for Grand draw.")
                 return
@@ -235,3 +380,9 @@ class DrawPanel(QWidget):
         back_btn.move(20, 20)
         back_btn.show()
         back_btn.clicked.connect(lambda: self._stack.setCurrentIndex(0))
+
+    def _pulse_button(self, btn: QPushButton) -> None:
+        """Brief scale-like pulse animation on draw button click."""
+        original_style = btn.styleSheet()
+        btn.setStyleSheet(original_style + "border: 2px solid #FFE94D;")
+        QTimer.singleShot(150, lambda: btn.setStyleSheet(original_style))

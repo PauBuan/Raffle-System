@@ -5,18 +5,16 @@ Grand prize reveal screen.
 Animates the winner's EmpNo as a slot machine:
 one character per slot, revealed every SLOT_CHAR_INTERVAL_MS ms.
 
-e.g. EmpNo = "OJT26A02"
-     tick 0 → "_ _ _ _ _ _ _ _"
-     tick 1 → "O _ _ _ _ _ _ _"
-     tick 2 → "O J _ _ _ _ _ _"
-     ...
-     tick 8 → "O J T 2 6 A 0 2"
+v2.0 changes:
+    - Particle burst (confetti emoji rain) on final reveal
+    - Gold shimmer pulse on winner card
 """
 
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame,
+    QGraphicsOpacityEffect,
 )
-from PySide6.QtCore    import Qt, QTimer
+from PySide6.QtCore    import Qt, QTimer, QPropertyAnimation, QEasingCurve
 from PySide6.QtGui     import QFont
 from app.models        import Winner
 from config.settings   import COLORS, SLOT_CHAR_INTERVAL_MS
@@ -62,6 +60,7 @@ class GrandLoadingScreen(QWidget):
         self._tick      = 0
         self._timer     = QTimer(self)
         self._timer.timeout.connect(self._reveal_next_char)
+        self._confetti_labels: list[QLabel] = []
         self._build_ui(prize_name)
 
     # ── UI ─────────────────────────────────────────────────────────
@@ -120,19 +119,34 @@ class GrandLoadingScreen(QWidget):
 
         root.addSpacing(30)
 
-        # Winner name (hidden until all chars revealed)
+        # Winner card (hidden until all chars revealed) — with gold shimmer
+        self._winner_card = QFrame()
+        self._winner_card.setStyleSheet(f"""
+            QFrame {{
+                background: qlineargradient(x1:0,y1:0,x2:1,y2:1,
+                    stop:0 rgba(255,215,0,0.1), stop:0.5 rgba(255,215,0,0.05),
+                    stop:1 rgba(255,215,0,0.1));
+                border: 2px solid {COLORS['accent_gold']};
+                border-radius: 12px;
+                padding: 16px;
+            }}
+        """)
+        card_layout = QVBoxLayout(self._winner_card)
+        card_layout.setSpacing(6)
+
         self._name_lbl = QLabel(self._winner.emp_name)
         self._name_lbl.setAlignment(Qt.AlignCenter)
         self._name_lbl.setFont(QFont("Segoe UI", 30, QFont.Bold))
-        self._name_lbl.setStyleSheet(f"color: {COLORS['accent_gold']};")
-        self._name_lbl.hide()
-        root.addWidget(self._name_lbl)
+        self._name_lbl.setStyleSheet(f"color: {COLORS['accent_gold']}; border: none; background: transparent;")
+        card_layout.addWidget(self._name_lbl)
 
         self._dept_lbl = QLabel(self._winner.department)
         self._dept_lbl.setAlignment(Qt.AlignCenter)
-        self._dept_lbl.setStyleSheet(f"color: {COLORS['text_muted']}; font-size: 14px;")
-        self._dept_lbl.hide()
-        root.addWidget(self._dept_lbl)
+        self._dept_lbl.setStyleSheet(f"color: {COLORS['text_muted']}; font-size: 14px; border: none; background: transparent;")
+        card_layout.addWidget(self._dept_lbl)
+
+        self._winner_card.hide()
+        root.addWidget(self._winner_card)
 
         root.addStretch()
 
@@ -157,6 +171,61 @@ class GrandLoadingScreen(QWidget):
             self._tick += 1
         else:
             self._timer.stop()
-            self._name_lbl.show()
-            self._dept_lbl.show()
-            self._confetti.show()
+            self._show_winner_reveal()
+
+    def _show_winner_reveal(self) -> None:
+        """Show winner card with gold shimmer pulse + confetti burst."""
+        self._winner_card.show()
+        self._confetti.show()
+
+        # Gold shimmer pulse on winner card
+        self._shimmer_pulse()
+
+        # Confetti burst
+        self._spawn_confetti()
+
+    def _shimmer_pulse(self) -> None:
+        """Pulsing opacity animation on the winner card."""
+        opacity = QGraphicsOpacityEffect(self._winner_card)
+        self._winner_card.setGraphicsEffect(opacity)
+
+        pulse = QPropertyAnimation(opacity, b"opacity")
+        pulse.setDuration(800)
+        pulse.setStartValue(0.5)
+        pulse.setEndValue(1.0)
+        pulse.setEasingCurve(QEasingCurve.InOutSine)
+        pulse.setLoopCount(3)
+        pulse.start()
+        self._pulse_anim = pulse
+
+    def _spawn_confetti(self) -> None:
+        """Create floating confetti emoji labels across the screen."""
+        import random
+        emojis = ["🎉", "✨", "🌟", "🎊", "💫", "⭐", "🏆"]
+        for _ in range(12):
+            emoji = random.choice(emojis)
+            lbl = QLabel(emoji, self)
+            lbl.setFont(QFont("Segoe UI", random.randint(16, 28)))
+            lbl.setStyleSheet("background: transparent; border: none;")
+            lbl.setAlignment(Qt.AlignCenter)
+
+            x = random.randint(20, max(self.width() - 60, 100))
+            start_y = random.randint(-60, -20)
+            end_y = self.height() + 40
+
+            lbl.move(x, start_y)
+            lbl.show()
+
+            anim = QPropertyAnimation(lbl, b"pos")
+            anim.setDuration(random.randint(2000, 4000))
+            anim.setStartValue(lbl.pos())
+            from PySide6.QtCore import QPoint
+            anim.setEndValue(QPoint(x + random.randint(-30, 30), end_y))
+            anim.setEasingCurve(QEasingCurve.Linear)
+            anim.start()
+
+            self._confetti_labels.append(lbl)
+            # prevent GC
+            if not hasattr(self, '_confetti_anims'):
+                self._confetti_anims = []
+            self._confetti_anims.append(anim)

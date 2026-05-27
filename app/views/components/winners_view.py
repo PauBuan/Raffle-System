@@ -132,7 +132,8 @@ class WinnersView(QWidget):
         tbl.setRowCount(0)
         for row_i, w in enumerate(winners):
             tbl.insertRow(row_i)
-            cells = [w.emp_no, w.emp_name, w.department, w.prize_name, w.drawn_at[:19]]
+            drawn_at = w.drawn_at[:19] if w.drawn_at else ""
+            cells = [w.emp_no, w.emp_name, w.department, w.prize_name, drawn_at]
             for col_i, text in enumerate(cells):
                 item = QTableWidgetItem(text)
                 if col_i == 0:

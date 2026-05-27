@@ -1,63 +1,107 @@
 -- ============================================================
--- Raffle System Database Schema
+-- Raffle System Database Schema v2.0
 -- Target: SQL Server 2019 (SQL19)
+-- All tables use underscore-prefixed names.
 -- ============================================================
 
 -- ----------------------------------------------------------------
--- Table: Employees
--- Stores employee master data used as raffle participants.
+-- Table: _Employees
 -- ----------------------------------------------------------------
-CREATE TABLE Employees (
-    EmpNo       VARCHAR(20)  NOT NULL PRIMARY KEY,
-    EmpName     VARCHAR(100) NOT NULL,
-    Department  VARCHAR(100) NOT NULL
+CREATE TABLE _Employees (
+    EmpNo                VARCHAR(20)  NOT NULL PRIMARY KEY,
+    EmpName              VARCHAR(100) NOT NULL,
+    Department           VARCHAR(100) NOT NULL,
+    WinChanceMultiplier  INT          NOT NULL DEFAULT 1
 );
 
 -- ----------------------------------------------------------------
--- Table: PrizeCategories
--- Defines the three prize tiers: Minor, Major, Grand.
+-- Table: _PrizeCategories
 -- ----------------------------------------------------------------
-CREATE TABLE PrizeCategories (
+CREATE TABLE _PrizeCategories (
     CategoryID   INT          NOT NULL PRIMARY KEY IDENTITY(1,1),
-    CategoryName VARCHAR(20)  NOT NULL  -- 'Minor' | 'Major' | 'Grand'
+    CategoryName VARCHAR(50)  NOT NULL
 );
 
 -- ----------------------------------------------------------------
--- Table: Prizes
--- Each row is one prize slot within a category.
--- The Quantity column determines how many winners are drawn.
+-- Table: _Prizes
 -- ----------------------------------------------------------------
-CREATE TABLE Prizes (
+CREATE TABLE _Prizes (
     PrizeID      INT          NOT NULL PRIMARY KEY IDENTITY(1,1),
-    CategoryID   INT          NOT NULL REFERENCES PrizeCategories(CategoryID),
+    CategoryID   INT          NOT NULL REFERENCES _PrizeCategories(CategoryID),
     PrizeName    VARCHAR(200) NOT NULL,
-    Quantity     INT          NOT NULL DEFAULT 1,  -- winners per draw
+    WinnerCount  INT          NOT NULL DEFAULT 1,
     IsActive     BIT          NOT NULL DEFAULT 1
 );
 
 -- ----------------------------------------------------------------
--- Table: RaffleWinners
--- Records every drawn winner.  IsRedraw flags replacement draws.
+-- Table: _Events
+-- (Created before _RaffleWinners because of FK dependency)
 -- ----------------------------------------------------------------
-CREATE TABLE RaffleWinners (
-    WinnerID    INT          NOT NULL PRIMARY KEY IDENTITY(1,1),
-    PrizeID     INT          NOT NULL REFERENCES Prizes(PrizeID),
-    EmpNo       VARCHAR(20)  NOT NULL REFERENCES Employees(EmpNo),
-    Department  VARCHAR(100) NOT NULL,
-    DrawnAt     DATETIME     NOT NULL DEFAULT GETDATE(),
-    IsRedraw    BIT          NOT NULL DEFAULT 0
+CREATE TABLE _Events (
+    EventID    INT          NOT NULL PRIMARY KEY IDENTITY(1,1),
+    EventName  VARCHAR(150) NOT NULL,
+    CreatedAt  DATETIME     NOT NULL DEFAULT GETDATE(),
+    IsActive   BIT          NOT NULL DEFAULT 1
 );
 
 -- ----------------------------------------------------------------
--- Table: RaffleSession
--- Tracks the active session / event.
+-- Table: _RaffleWinners
 -- ----------------------------------------------------------------
-CREATE TABLE RaffleSession (
-    SessionID   INT          NOT NULL PRIMARY KEY IDENTITY(1,1),
-    SessionName VARCHAR(200) NOT NULL,
-    Department  VARCHAR(100) NOT NULL,  -- department in scope for this draw
-    CreatedAt   DATETIME     NOT NULL DEFAULT GETDATE(),
-    IsActive    BIT          NOT NULL DEFAULT 1
+CREATE TABLE _RaffleWinners (
+    WinnerID    INT          NOT NULL PRIMARY KEY IDENTITY(1,1),
+    PrizeID     INT          NOT NULL REFERENCES _Prizes(PrizeID),
+    EmpNo       VARCHAR(20)  NOT NULL REFERENCES _Employees(EmpNo),
+    Department  VARCHAR(100) NOT NULL,
+    DrawnAt     DATETIME     NOT NULL DEFAULT GETDATE(),
+    IsRedraw    BIT          NOT NULL DEFAULT 0,
+    IsConfirmed BIT          NOT NULL DEFAULT 0,
+    EventID     INT          NULL     REFERENCES _Events(EventID)
+);
+
+-- ----------------------------------------------------------------
+-- Table: _Groups
+-- ----------------------------------------------------------------
+CREATE TABLE _Groups (
+    GroupID         INT          NOT NULL PRIMARY KEY IDENTITY(1,1),
+    GroupName       VARCHAR(100) NOT NULL,
+    BuildingTag     VARCHAR(10)  NULL,      -- 'LTI' | 'CIP' | NULL
+    AllocatedPrizes INT          NOT NULL DEFAULT 0
+);
+
+-- ----------------------------------------------------------------
+-- Table: _GroupDepartments
+-- ----------------------------------------------------------------
+CREATE TABLE _GroupDepartments (
+    ID         INT          NOT NULL PRIMARY KEY IDENTITY(1,1),
+    GroupID    INT          NOT NULL REFERENCES _Groups(GroupID),
+    Department VARCHAR(100) NOT NULL
+);
+
+-- ----------------------------------------------------------------
+-- Table: _EventParticipants
+-- ----------------------------------------------------------------
+CREATE TABLE _EventParticipants (
+    ID      INT         NOT NULL PRIMARY KEY IDENTITY(1,1),
+    EventID INT         NOT NULL REFERENCES _Events(EventID),
+    EmpNo   VARCHAR(20) NOT NULL REFERENCES _Employees(EmpNo)
+);
+
+-- ----------------------------------------------------------------
+-- Table: _AdminAuditLog
+-- ----------------------------------------------------------------
+CREATE TABLE _AdminAuditLog (
+    LogID       INT          NOT NULL PRIMARY KEY IDENTITY(1,1),
+    AdminName   VARCHAR(100) NOT NULL,
+    ChangesMade NVARCHAR(MAX) NOT NULL,
+    ChangedAt   DATETIME     NOT NULL DEFAULT GETDATE()
+);
+
+-- ----------------------------------------------------------------
+-- Table: _DepartmentSettings
+-- ----------------------------------------------------------------
+CREATE TABLE _DepartmentSettings (
+    DeptName              VARCHAR(100) NOT NULL PRIMARY KEY,
+    WinChanceMultiplier   INT          NOT NULL DEFAULT 1
 );
 
 -- ============================================================
@@ -65,12 +109,12 @@ CREATE TABLE RaffleSession (
 -- ============================================================
 
 -- Prize categories (fixed)
-INSERT INTO PrizeCategories (CategoryName) VALUES ('Minor');
-INSERT INTO PrizeCategories (CategoryName) VALUES ('Major');
-INSERT INTO PrizeCategories (CategoryName) VALUES ('Grand');
+INSERT INTO _PrizeCategories (CategoryName) VALUES ('Minor');
+INSERT INTO _PrizeCategories (CategoryName) VALUES ('Major');
+INSERT INTO _PrizeCategories (CategoryName) VALUES ('Grand');
 
 -- Sample employees
-INSERT INTO Employees (EmpNo, EmpName, Department) VALUES
+INSERT INTO _Employees (EmpNo, EmpName, Department) VALUES
 ('EMP001', 'Juan dela Cruz',       'Engineering'),
 ('EMP002', 'Maria Santos',         'Engineering'),
 ('EMP003', 'Pedro Reyes',          'Engineering'),
@@ -88,10 +132,10 @@ INSERT INTO Employees (EmpNo, EmpName, Department) VALUES
 ('OJT26A03', 'OJT Intern Gamma',   'HR');
 
 -- Sample prizes
-INSERT INTO Prizes (CategoryID, PrizeName, Quantity) VALUES
-(1, 'Gift Card P500',    5),  -- Minor: 5 winners
-(1, 'Consolation Pack',  3),  -- Minor: 3 winners
-(2, 'Smart TV 32"',      2),  -- Major: 2 winners
-(2, 'Air Fryer',         1),  -- Major: 1 winner
-(3, 'Laptop',            1),  -- Grand: 1 winner (unique, no repeats)
-(3, 'Motorcycle',        1);  -- Grand: 1 winner (unique, no repeats)
+INSERT INTO _Prizes (CategoryID, PrizeName, WinnerCount) VALUES
+(1, 'Gift Card P500',    5),
+(1, 'Consolation Pack',  3),
+(2, 'Smart TV 32"',      2),
+(2, 'Air Fryer',         1),
+(3, 'Laptop',            1),
+(3, 'Motorcycle',        1);

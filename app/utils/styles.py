@@ -185,4 +185,101 @@ def get_stylesheet() -> str:
     QSplitter::handle {{
         background: {_C['border']};
     }}
+
+    /* ── Dialog / Wizard cards ───────────────────────────── */
+    QFrame#dialog_card, QFrame#wizard_card {{
+        background-color: {_C['bg_card']};
+        border:           1px solid {_C['border']};
+        border-radius:    14px;
+        padding:          20px;
+    }}
+
+    QFrame#login_card {{
+        background: qlineargradient(x1:0,y1:0,x2:0,y2:1,
+            stop:0 {_C['bg_card2']}, stop:1 {_C['bg_card']});
+        border:           2px solid {_C['accent_gold']};
+        border-radius:    16px;
+        padding:          30px;
+    }}
+
+    /* ── Action buttons ─────────────────────────────────── */
+    QPushButton#btn_add {{
+        background-color: {_C['accent_green']};
+        color:            #000000;
+        font-weight:      700;
+        border:           none;
+        border-radius:    6px;
+        padding:          8px 18px;
+    }}
+    QPushButton#btn_add:hover {{
+        background-color: #6bffb8;
+    }}
+
+    QPushButton#btn_confirm {{
+        background-color: {_C['accent_gold']};
+        color:            #000000;
+        font-weight:      700;
+        border:           none;
+        border-radius:    8px;
+        padding:          10px 28px;
+        font-size:        14px;
+    }}
+    QPushButton#btn_confirm:hover {{
+        background-color: #ffe94d;
+    }}
+
+    QPushButton#btn_mode {{
+        background: qlineargradient(x1:0,y1:0,x2:0,y2:1,
+            stop:0 {_C['bg_card2']}, stop:1 {_C['bg_card']});
+        border:           2px solid {_C['border']};
+        border-radius:    16px;
+    }}
+    QPushButton#btn_mode:hover {{
+        border-color: {_C['accent_blue']};
+    }}
+
+    /* ── Progress bar (wizard steps) ────────────────────── */
+    QProgressBar {{
+        background-color: {_C['bg_card2']};
+        border:           1px solid {_C['border']};
+        border-radius:    6px;
+        text-align:       center;
+        color:            {_C['text_primary']};
+        font-weight:      600;
+        height:           18px;
+    }}
+    QProgressBar::chunk {{
+        background-color: {_C['accent_blue']};
+        border-radius:    5px;
+    }}
+
+    /* ── Dialog styling ─────────────────────────────────── */
+    QDialog {{
+        background-color: {_C['bg_dark']};
+        border:           1px solid {_C['border']};
+        border-radius:    12px;
+    }}
+
+    /* ── GroupBox (admin panel sections) ─────────────────── */
+    QGroupBox {{
+        background-color: {_C['bg_card']};
+        border:           1px solid {_C['border']};
+        border-radius:    10px;
+        margin-top:       16px;
+        padding-top:      20px;
+        font-weight:      700;
+        color:            {_C['accent_blue']};
+    }}
+    QGroupBox::title {{
+        subcontrol-origin: margin;
+        subcontrol-position: top left;
+        padding:          4px 12px;
+        background-color: {_C['bg_card2']};
+        border:           1px solid {_C['border']};
+        border-radius:    6px;
+        color:            {_C['accent_gold']};
+        font-size:        12px;
+        letter-spacing:   1px;
+    }}
     """
+

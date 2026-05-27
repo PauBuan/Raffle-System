@@ -5,15 +5,21 @@ Application-wide constants and UI theme settings.
 """
 
 APP_NAME    = "Raffle System"
-APP_VERSION = "1.0.0"
+APP_VERSION = "2.0.0"
 
 # ── Prize category labels (must match DB seed) ────────────────────
 CATEGORY_MINOR = "Minor"
 CATEGORY_MAJOR = "Major"
 CATEGORY_GRAND = "Grand"
 
-# Grand prize slot-machine animation
-SLOT_CHAR_INTERVAL_MS = 3000   # ms between each character reveal
+# ── Animation timing constants ────────────────────────────────────
+SLOT_CHAR_INTERVAL_MS  = 3000   # Grand: ms per character reveal
+MINOR_ROW_INTERVAL_MS  = 280    # Minor: ms between row reveals
+MAJOR_CARD_INTERVAL_MS = 700    # Major: ms between card reveals
+
+# ── Grand prize building defaults ─────────────────────────────────
+DEFAULT_LTI_WINNERS = 1
+DEFAULT_CIP_WINNERS = 2
 
 # Recent winners section cap
 RECENT_WINNERS_LIMIT = 30

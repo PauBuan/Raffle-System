@@ -36,9 +36,9 @@ class AddPrizeDialog(QDialog):
         self.setWindowFlags(self.windowFlags() | Qt.FramelessWindowHint)
         self.setAttribute(Qt.WA_TranslucentBackground)
 
-        self.category:   str = default_category
-        self.prize_name: str = ""
-        self.quantity:   int = 1
+        self.category:      str = default_category
+        self.prize_name:    str = ""
+        self.winner_count:  int = 1
 
         self._build_ui(default_category)
 
@@ -238,9 +238,9 @@ class AddPrizeDialog(QDialog):
             return
 
         self._error_lbl.hide()
-        self.category   = self._cat_combo.currentText()
-        self.prize_name = name
-        self.quantity   = self._qty_spin.value()
+        self.category     = self._cat_combo.currentText()
+        self.prize_name   = name
+        self.winner_count = self._qty_spin.value()
         self.accept()
 
     # Allow dragging the frameless dialog
