@@ -1,4 +1,9 @@
 # Raffle System v2.0.0 — Python dependencies
 PySide6>=6.6.0
+<<<<<<< HEAD
 pyodbc>=4.0.39          # SQL Server 2019 connectivity (used by SQLAlchemy mssql+pyodbc dialect)
 sqlalchemy>=2.0         # ORM — all DB access goes through SQLAlchemy
+=======
+pyodbc>=4.0.39          # SQL Server 2019 connectivity; optional (SQLite fallback available)
+
+>>>>>>> d0de4549399dc5c5fe0c4bd89f0d3faea0cad786
