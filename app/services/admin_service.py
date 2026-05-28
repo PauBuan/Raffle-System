@@ -52,6 +52,23 @@ class AdminService:
         self._admin.log_action(admin_name, desc)
         logger.info("Admin %s: %s", admin_name, desc)
 
+    def confirm_group_ready(self, admin_name: str, group_id: int) -> None:
+        """Mark a group as READY FOR DRAWING and log the action."""
+        self._groups.confirm_group_ready(group_id)
+        groups = self._groups.get_all_groups()
+        name = next((g.group_name for g in groups if g.group_id == group_id), "?")
+        desc = f"Group '{name}' confirmed as READY FOR DRAWING"
+        self._admin.log_action(admin_name, desc)
+        logger.info("Admin %s: %s", admin_name, desc)
+
+    def mark_group_not_set(self, group_id: int) -> None:
+        """Reset group status to NOT SET (auto-called on edits)."""
+        self._groups.mark_group_not_set(group_id)
+
+    def are_all_groups_ready(self) -> tuple[bool, list[str]]:
+        """Check if all groups are READY FOR DRAWING."""
+        return self._groups.are_all_groups_ready()
+
     # ── Win Chance Boosts ──────────────────────────────────────────
 
     def set_employee_boost(self, admin_name: str, emp_no: str, multiplier: int) -> None:

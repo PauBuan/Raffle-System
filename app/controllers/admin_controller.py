@@ -6,11 +6,16 @@ Controller for Admin Panel operations.
 Routing
 -------
 AdminPanel (View) → AdminController → AdminService / EventService → Repositories → DB
+
+v3.0 changes:
+    - Removed import_csv / import_employees_csv (moved to DIY Mode)
+    - Removed get_participants (no longer event-scoped)
+    - Added confirm_group_ready() and mark_group_not_set() for group status
 """
 
 from PySide6.QtCore import QObject, Signal
 
-from app.services import AdminService, EventService, ImportResult
+from app.services import AdminService, EventService
 from app.models   import GroupInfo, AuditEntry, EventInfo
 
 
@@ -59,6 +64,22 @@ class AdminController(QObject):
         except Exception as exc:
             self.error_occurred.emit(str(exc))
 
+    def confirm_group_ready(self, group_id: int) -> None:
+        """Mark a group as READY FOR DRAWING."""
+        try:
+            self._admin_service.confirm_group_ready(self._admin_name, group_id)
+            self.groups_updated.emit()
+        except Exception as exc:
+            self.error_occurred.emit(str(exc))
+
+    def mark_group_not_set(self, group_id: int) -> None:
+        """Reset group status to NOT SET."""
+        try:
+            self._admin_service.mark_group_not_set(group_id)
+            self.groups_updated.emit()
+        except Exception as exc:
+            self.error_occurred.emit(str(exc))
+
     # ── Boosts ─────────────────────────────────────────────────────
 
     def set_employee_boost(self, emp_no: str, multiplier: int) -> None:
@@ -98,25 +119,8 @@ class AdminController(QObject):
             self.error_occurred.emit(str(exc))
             return None
 
-    def import_csv(self, filepath: str, event_id: int | None = None) -> ImportResult:
-        result = self._event_service.import_csv(filepath, event_id)
-        if not result.errors:
-            self._admin_service.log(
-                self._admin_name,
-                f"Imported CSV (event={event_id}): {result.total} rows, "
-                f"{result.inserted} new, {result.updated} updated",
-            )
-        return result
-
-    def import_employees_csv(self, filepath: str) -> ImportResult:
-        """Import employees only (Department mode) — no event linking."""
-        return self.import_csv(filepath, event_id=None)
-
     def get_active_events(self) -> list[EventInfo]:
         return self._event_service.get_active_events()
-
-    def get_participants(self, event_id: int):
-        return self._event_service.get_participants(event_id)
 
     # ── Audit ──────────────────────────────────────────────────────
 

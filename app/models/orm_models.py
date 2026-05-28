@@ -15,6 +15,7 @@ from sqlalchemy import (
     Column, Integer, String, Boolean, DateTime, Text,
     ForeignKey,
 )
+from sqlalchemy.orm import validates
 from .database_manager import Base
 
 
@@ -25,7 +26,14 @@ class Employee(Base):
     EmpNo                = Column(String(20), primary_key=True)
     EmpName              = Column(String(100), nullable=False)
     Department           = Column(String(100), nullable=False)
+    Building             = Column(String(10),  nullable=False, default='LTI')
     WinChanceMultiplier  = Column(Integer, default=1)
+
+    @validates('Building')
+    def validate_building(self, key, value):
+        if value not in ('LTI', 'CIP'):
+            raise ValueError(f"Building must be 'LTI' or 'CIP', got: {value!r}")
+        return value
 
 
 class PrizeCategory(Base):
@@ -69,6 +77,7 @@ class Group(Base):
     GroupName       = Column(String(100), nullable=False)
     BuildingTag     = Column(String(10), nullable=True)   # 'LTI' | 'CIP' | None
     AllocatedPrizes = Column(Integer, default=0)
+    Status          = Column(String(20), nullable=False, default='NOT SET')
 
 
 class GroupDepartment(Base):

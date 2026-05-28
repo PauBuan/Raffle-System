@@ -11,6 +11,8 @@ CREATE TABLE _Employees (
     EmpNo                VARCHAR(20)  NOT NULL PRIMARY KEY,
     EmpName              VARCHAR(100) NOT NULL,
     Department           VARCHAR(100) NOT NULL,
+    Building             NVARCHAR(10) NOT NULL DEFAULT 'LTI'
+                         CONSTRAINT CHK_Building CHECK (Building IN ('LTI', 'CIP')),
     WinChanceMultiplier  INT          NOT NULL DEFAULT 1
 );
 
@@ -65,7 +67,9 @@ CREATE TABLE _Groups (
     GroupID         INT          NOT NULL PRIMARY KEY IDENTITY(1,1),
     GroupName       VARCHAR(100) NOT NULL,
     BuildingTag     VARCHAR(10)  NULL,      -- 'LTI' | 'CIP' | NULL
-    AllocatedPrizes INT          NOT NULL DEFAULT 0
+    AllocatedPrizes INT          NOT NULL DEFAULT 0,
+    Status          NVARCHAR(20) NOT NULL DEFAULT 'NOT SET'
+                    CONSTRAINT CHK_GroupStatus CHECK (Status IN ('NOT SET', 'READY FOR DRAWING'))
 );
 
 -- ----------------------------------------------------------------
@@ -113,23 +117,23 @@ INSERT INTO _PrizeCategories (CategoryName) VALUES ('Minor');
 INSERT INTO _PrizeCategories (CategoryName) VALUES ('Major');
 INSERT INTO _PrizeCategories (CategoryName) VALUES ('Grand');
 
--- Sample employees
-INSERT INTO _Employees (EmpNo, EmpName, Department) VALUES
-('EMP001', 'Juan dela Cruz',       'Engineering'),
-('EMP002', 'Maria Santos',         'Engineering'),
-('EMP003', 'Pedro Reyes',          'Engineering'),
-('EMP004', 'Ana Gonzalez',         'HR'),
-('EMP005', 'Jose Ramos',           'HR'),
-('EMP006', 'Luz Fernandez',        'HR'),
-('EMP007', 'Carlos Villanueva',    'Finance'),
-('EMP008', 'Elena Torres',         'Finance'),
-('EMP009', 'Roberto Aquino',       'Finance'),
-('EMP010', 'Maricel Bautista',     'Marketing'),
-('EMP011', 'Andres Castillo',      'Marketing'),
-('EMP012', 'Cristina Lim',         'Marketing'),
-('OJT26A01', 'OJT Intern Alpha',   'Engineering'),
-('OJT26A02', 'OJT Intern Beta',    'Engineering'),
-('OJT26A03', 'OJT Intern Gamma',   'HR');
+-- Sample employees (Building: LTI or CIP)
+INSERT INTO _Employees (EmpNo, EmpName, Department, Building) VALUES
+('EMP001', 'Juan dela Cruz',       'Engineering',  'LTI'),
+('EMP002', 'Maria Santos',         'Engineering',  'LTI'),
+('EMP003', 'Pedro Reyes',          'Engineering',  'CIP'),
+('EMP004', 'Ana Gonzalez',         'HR',           'LTI'),
+('EMP005', 'Jose Ramos',           'HR',           'CIP'),
+('EMP006', 'Luz Fernandez',        'HR',           'CIP'),
+('EMP007', 'Carlos Villanueva',    'Finance',      'LTI'),
+('EMP008', 'Elena Torres',         'Finance',      'LTI'),
+('EMP009', 'Roberto Aquino',       'Finance',      'CIP'),
+('EMP010', 'Maricel Bautista',     'Marketing',    'LTI'),
+('EMP011', 'Andres Castillo',      'Marketing',    'CIP'),
+('EMP012', 'Cristina Lim',         'Marketing',    'LTI'),
+('OJT26A01', 'OJT Intern Alpha',   'Engineering', 'LTI'),
+('OJT26A02', 'OJT Intern Beta',    'Engineering', 'LTI'),
+('OJT26A03', 'OJT Intern Gamma',   'HR',          'CIP');
 
 -- Sample prizes
 INSERT INTO _Prizes (CategoryID, PrizeName, WinnerCount) VALUES

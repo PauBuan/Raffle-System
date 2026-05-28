@@ -15,6 +15,7 @@ class GroupInfo:
     group_name:       str
     building_tag:     str | None
     allocated_prizes: int
+    status:           str = "NOT SET"
     departments:      list[str] = field(default_factory=list)
 
 
@@ -37,6 +38,7 @@ class GroupRepository:
                     group_name=g.GroupName,
                     building_tag=g.BuildingTag,
                     allocated_prizes=g.AllocatedPrizes or 0,
+                    status=g.Status or "NOT SET",
                     departments=[d[0] for d in depts],
                 ))
             return result
@@ -69,6 +71,7 @@ class GroupRepository:
                         orm_group.GroupName = g["group_name"]
                         orm_group.BuildingTag = g.get("building_tag")
                         orm_group.AllocatedPrizes = g.get("allocated_prizes", 0)
+                        orm_group.Status = "NOT SET"   # Auto-reset on edit
                     else:
                         orm_group = GroupORM(
                             GroupName=g["group_name"],
@@ -105,3 +108,26 @@ class GroupRepository:
             session.query(GroupORM).filter(
                 GroupORM.GroupID == group_id
             ).delete()
+
+    def confirm_group_ready(self, group_id: int) -> None:
+        """Set group status to READY FOR DRAWING."""
+        with get_session() as session:
+            group = session.query(GroupORM).get(group_id)
+            if group:
+                group.Status = "READY FOR DRAWING"
+
+    def mark_group_not_set(self, group_id: int) -> None:
+        """Reset group status to NOT SET (called after any edit)."""
+        with get_session() as session:
+            group = session.query(GroupORM).get(group_id)
+            if group:
+                group.Status = "NOT SET"
+
+    def are_all_groups_ready(self) -> tuple[bool, list[str]]:
+        """Check if all groups are READY FOR DRAWING.
+        Returns (all_ready, list_of_not_ready_names)."""
+        groups = self.get_all_groups()
+        if not groups:
+            return True, []
+        not_ready = [g.group_name for g in groups if g.status != "READY FOR DRAWING"]
+        return len(not_ready) == 0, not_ready
