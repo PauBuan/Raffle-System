@@ -7,3 +7,29 @@ sqlalchemy>=2.0         # ORM — all DB access goes through SQLAlchemy
 pyodbc>=4.0.39          # SQL Server 2019 connectivity; optional (SQLite fallback available)
 
 >>>>>>> d0de4549399dc5c5fe0c4bd89f0d3faea0cad786
+
+
+
+####### Update 3
+In the group setting in admin, set a status if its NOT SET the admin hasn't committed the groups yet, If READY FOR DRAWING, the admin committed and confirmed.
+
+Group drawing should only take place in event mode since events include the whole company's Individual Departments and building so biases are needed.
+
+Bugs:
+Event's mode is on CSV needing mode, make it take from _Employees for the whole thing. so for the user to know, the participants should show all in _Employees
+
+
+DATABASE: add Building and values are only LTI CIP in _Employees table to connect it to the groupings bias in admin
+
+add logs of 'group x is successfully given x amount of winners!' in the admin panel to verify if the bias indeed happen
+
+changes:
+
+Department mode is focused on their department
+
+Event mode is for Big events involving only the _Employees that focuses on their department and building
+
+
+New mode is DIY Mode. In DIY mode, they get to add participants with a form "EmpName,EmpNo,Department" OR there is an option where they can insert/upload csv file (Move the CSV prompt in this section)
+
+Then whoever is in the list shall be the only participants for the drawing.
